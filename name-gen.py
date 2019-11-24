@@ -66,7 +66,44 @@ class MarkovWordGenerator:
         return self
 
     def predict(self, seed_string=None, max_len=None):
-        return "Johan"
+        if seed_string is None:
+            start_state = " "*(self.state_size-1) + self.START_TOKEN
+        else:
+            raise NotImplementedError("Haven't implemented custom starting strings yet.")
+
+        if max_len is not None:
+            raise NotImplementedError("Haven't implemented maximum sampling length yet")
+
+        # We'll sample new characters in the name based on the emission/observation
+        # probabilities we calculated during the fitting procedure
+        emitted_token = ""
+        sampled_word = ""
+        current_state = start_state
+        while emitted_token != self.STOP_TOKEN:
+
+            # If we've seen this state (i.e. string of self.state_size characters) before,
+            # sample a character that's like to come after it.
+            if current_state in self.emission_prob:
+                possible_chars = np.array(list(self.emission_prob[current_state].keys()))
+                char_probs = np.array(list(self.emission_prob[current_state].values()))
+                emitted_token = np.random.choice(possible_chars, 1, p=char_probs)[0]
+
+            # Apparently we've never seen this state (can happen with high state sizes),
+            # so just sample a common character to try to get back to a state we have
+            # seen.
+            else:
+                possible_chars = np.array(list(self.char_prob.keys()))
+                char_probs = np.array(list(self.char_prob.values()))
+                emitted_token = np.random.choice(possible_chars, 1, p=char_probs)[0]
+
+            sampled_word += emitted_token
+            current_state = current_state + emitted_token
+            current_state = current_state[-self.state_size:]
+
+        # Clean it up so it looks like a name
+        sampled_word = sampled_word.lstrip(self.START_TOKEN).rstrip(self.STOP_TOKEN).capitalize()
+
+        return sampled_word
 
 
 def load_names(file_path, gender='M'):
@@ -83,5 +120,5 @@ if __name__ == "__main__":
     baby_names = load_names('yob2018.txt')
     print('Top 5 male names 2018: {}'.format(", ".join(baby_names[:5])))
 
-    name_generator = MarkovWordGenerator(state_size=3).fit(baby_names)
+    name_generator = MarkovWordGenerator(state_size=4).fit(baby_names)
     print('Random new name: {}'.format(name_generator.predict()))
